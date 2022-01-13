@@ -11,24 +11,24 @@ Validate simply without reflection or a complex DSL.
 This approach will capture all validation failures, and throw a ValidationException on failure.
 
 ```kotlin
-    data class Apple(val id: Int, val weight: Double, val type: String) {
-        init {
-            validator {
-                validate("id", "Id must be positive") { id > 0}
-                validate("weight", "Weight must be between 1 and 25 unless id is 0 then it must be 50") 
-                {
-                    if (id == 0) { 
-                        weight == 50.0
-                    } else {
-                        weight in 1.0 .. 25.0
-                    } 
-                }
-                validate("type", "Invalid type", type) {
-                    type in listOf("Cortland", "Granny Smith", "Red Delicious", "Green Delicious")
-                }
+data class Apple(val id: Int, val weight: Double, val type: String) {
+    init {
+        validator {
+            validate("id", "Id must be positive") { id > 0}
+            validate("weight", "Weight must be between 1 and 25 unless id is 0 then it must be 50") 
+            {
+                if (id == 0) { 
+                    weight == 50.0
+                } else {
+                    weight in 1.0 .. 25.0
+                } 
+            }
+            validate("type", "Invalid type", type) {
+                type in listOf("Cortland", "Granny Smith", "Red Delicious", "Green Delicious")
             }
         }
     }
+}
 ```
 
 Create a `validator` block, and call the `validate` function, passing in the property name, an error message
@@ -42,32 +42,32 @@ indexed by property name.
 This approach will capture all validation failures, and return a [Result](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-result/).
 
 ```kotlin
-    fun buildApple(id: Int, weight: Double, type: String): Apple {
-        resultValidator {
-            validate("id", "Id must be positive") { id > 0}
-            validate("weight", "Weight must be between 1 and 25") { weight in 1.0 .. 25.0 }
-            validate("type", "Invalid type", type) {
-                type in listOf("Cortland", "Granny Smith", "Red Delicious", "Green Delicious")
+fun buildApple(id: Int, weight: Double, type: String): Apple {
+    resultValidator {
+        validate("id", "Id must be positive") { id > 0}
+        validate("weight", "Weight must be between 1 and 25") { weight in 1.0 .. 25.0 }
+        validate("type", "Invalid type", type) {
+            type in listOf("Cortland", "Granny Smith", "Red Delicious", "Green Delicious")
+        }
+    }.fold(
+        {
+            return Apple(id, weight, type)
+        }, // OnSuccess
+        {
+            val except = it as ValidationException
+            if ("type" in except.failures) {
+                raise SomeException("How Dare?!")
             }
-        }.fold(
-            {
-                return Apple(id, weight, type)
-            }, // OnSuccess
-            {
-                val except = it as ValidationException
-                if ("type" in except.failures) {
-                    raise SomeException("How Dare?!")
-                }
-                if ("id" in except.failures) {
-                    id = generateNextId()
-                }
-                if ("weight" in except.failures) {
-                    weight = getDefaultWeight()
-                }
-                return Apple(id, weight, type)
-            }  // OnFailure
-        )
-    }
+            if ("id" in except.failures) {
+                id = generateNextId()
+            }
+            if ("weight" in except.failures) {
+                weight = getDefaultWeight()
+            }
+            return Apple(id, weight, type)
+        }  // OnFailure
+    )
+}
 ```
 
 
@@ -84,13 +84,13 @@ Other approaches to validation in Kotlin:
 This approach will fail on the first error with an IllegalArgumentException.
 
 ```kotlin
-    data class Apple(val id: Int, val weight: Double, val type: String) {
-        init {
-            require(id > 0, "Id must be positive")
-            require(weight in 1.0 .. 25.0, "Weight must be between 1 and 25")
-            require(type in listOf("Cortland", "Granny Smith", "Red Delicious", "Green Delicious"), "Invalid type")
-        }
+data class Apple(val id: Int, val weight: Double, val type: String) {
+    init {
+        require(id > 0, "Id must be positive")
+        require(weight in 1.0 .. 25.0, "Weight must be between 1 and 25")
+        require(type in listOf("Cortland", "Granny Smith", "Red Delicious", "Green Delicious"), "Invalid type")
     }
+}
 ```
 
 ### Manual Approach 
@@ -98,46 +98,46 @@ This approach will fail on the first error with an IllegalArgumentException.
 This approach ensures all validation errors are caught.
 
 ```kotlin
-    data class Apple(val id: Int, val weight: Double, val type: String) {
-        init {
-            var failures = mutableMapOf<KValidationError>()
-            if (id <= 0) {
-                failures.put("id", "Id must be positive")
-            }
-            if (weight !in 1.0 .. 25.0) {
-                failures.put("weight", "Weight must be between 1 and 25")
-            }
-            if (type !in listOf("Cortland", "Granny Smith", "Red Delicious", "Green Delicious")) {
-                failures.put("type", "Invalid type: $type")
-            }
-            if (failures.size > 0) {
-                throw KValidationException("Validation failed", failures)
-            }
+data class Apple(val id: Int, val weight: Double, val type: String) {
+    init {
+        var failures = mutableMapOf<KValidationError>()
+        if (id <= 0) {
+            failures.put("id", "Id must be positive")
+        }
+        if (weight !in 1.0 .. 25.0) {
+            failures.put("weight", "Weight must be between 1 and 25")
+        }
+        if (type !in listOf("Cortland", "Granny Smith", "Red Delicious", "Green Delicious")) {
+            failures.put("type", "Invalid type: $type")
+        }
+        if (failures.size > 0) {
+            throw KValidationException("Validation failed", failures)
         }
     }
+}
 ```
 
 ### Pydantic for Reference
 
 ```python
-    class Apple(BaseModel):
-        id: int
-        weight: float
-        type: str
-    
-        @validator('id')
-        def valid_id(cls, v: int):
-            assert v >= 0, "ID must be positive"
-            return v
-    
-        @validator('weight')
-        def valid_weight(cls, v: float):
-            assert (v >= 0.0 and v < 25.0), "Weight must be between 1 and 25"
-            return v
-    
-        @validator('type')
-        def valid_type(cls, v: str):
-            assert v in ("Cortland", "Granny Smith", "Red Delicious", "Green Delicious"), "Invalid type"
-            return v
+class Apple(BaseModel):
+    id: int
+    weight: float
+    type: str
+
+    @validator('id')
+    def valid_id(cls, v: int):
+        assert v >= 0, "ID must be positive"
+        return v
+
+    @validator('weight')
+    def valid_weight(cls, v: float):
+        assert (v >= 0.0 and v < 25.0), "Weight must be between 1 and 25"
+        return v
+
+    @validator('type')
+    def valid_type(cls, v: str):
+        assert v in ("Cortland", "Granny Smith", "Red Delicious", "Green Delicious"), "Invalid type"
+        return v
 ```
 
