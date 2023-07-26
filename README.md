@@ -15,9 +15,9 @@ data class Apple(val id: Int, val weight: Double, val type: String) {
     init {
         validator {
             validate("id", "Id must be positive") { id > 0}
-            validate("weight", "Weight must be between 1 and 25 unless id is 0 then it must be 50") 
+            validate("weight", "Weight must be between 1 and 25 unless id is 1 then it must be 50") 
             {
-                if (id == 0) { 
+                if (id == 1) { // You can check the values of multiple fields in your validation
                     weight == 50.0
                 } else {
                     weight in 1.0 .. 25.0
